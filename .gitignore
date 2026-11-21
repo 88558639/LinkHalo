@@ -11,3 +11,4 @@ captures/
 *.dex
 *.class
 .cxx/
+*.apk.sha256
