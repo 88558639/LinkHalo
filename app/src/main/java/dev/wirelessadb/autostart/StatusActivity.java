@@ -705,7 +705,9 @@ public final class StatusActivity extends Activity {
     }
 
     private static final String CHANGELOG =
-            "1.2.32  点「检查更新」后按钮内显示进度圈与「检查更新中…」，检查期间禁点；"
+            "1.2.33  检查更新提速：API 被限流时改走 gh-proxy 代理同一 API，说明与校验值一并返回，"
+                    + "不再抓 atom、不再探测已废弃的 .sha256；镜像 ghproxy.net→gh.llkk.cc，超时 15s→8s\n\n"
+                    + "1.2.32  点「检查更新」后按钮内显示进度圈与「检查更新中…」，检查期间禁点；"
                     + "手动检查至少停留 600ms，避免一闪而过\n\n"
                     + "1.2.31  更新提示里直接显示本次更新内容（跨多个版本时只显示最新一版）；"
                     + "GitHub API 被限流时说明改从 releases.atom 取\n\n"

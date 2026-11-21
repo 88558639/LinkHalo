@@ -31,13 +31,25 @@ public final class Updater {
     private static final String OWNER = "88558639";
     private static final String REPO = "WirelessAdb";
 
-    /** Mirrors tried in order; empty string = direct GitHub. */
+    /**
+     * 镜像顺序：ghfast.top → gh-proxy.com → gh.llkk.cc → 直连。
+     * 实测（2026-11-21）gh-proxy.com 响应最快（0.6–0.8s）、ghfast.top 次之，
+     * ghproxy.net 已不可用（对 .atom 直接 403）故替换为 gh.llkk.cc。
+     */
     private static final String[] MIRRORS = {
             "https://ghfast.top/",
             "https://gh-proxy.com/",
-            "https://ghproxy.net/",
+            "https://gh.llkk.cc/",
             ""
     };
+    /** 检查更新阶段（不下载）的连接/读取超时：国内网络下 15s 太拖，8s 足够。 */
+    private static final int CHECK_CONNECT_MS = 8000;
+    private static final int CHECK_READ_MS = 8000;
+
+    /** GitHub API 端点：直连 + 经 gh-proxy 代理（同一份 JSON，实测代理 200/1.1s）。 */
+    private static final String API_LATEST =
+            "https://api.github.com/repos/" + OWNER + "/" + REPO + "/releases/latest";
+    private static final String API_VIA_PROXY = "https://gh-proxy.com/" + API_LATEST;
 
     public static final class UpdateInfo {
         public final String version;
@@ -136,22 +148,30 @@ public final class Updater {
         return false;
     }
 
+    /**
+     * 检查最新版本。
+     *
+     * 参照 OmniBar 的做法：**直连 API 优先，被限流/劫持时改走 gh-proxy 代理同一 API**。
+     * 代理返回的是同一份 JSON —— tag、body、asset digest 都有，因此降级时不再需要
+     * 单独拼 APK 直链、也不需要另外抓 atom 取说明（那条路径只作为最后的兜底）。
+     */
     private static UpdateInfo fetchLatest() {
-        UpdateInfo viaApi = fetchLatestViaApi();
-        if (viaApi != null) return viaApi;
-        // API 失败（国内网络常见 403/超时）时降级：用 releases/latest 的 302 拿最新 tag，
-        // 再按仓库约定的命名规则拼 APK 下载直链。不依赖 API，成功率更高。
+        String[] endpoints = {API_LATEST, API_VIA_PROXY};
+        for (String endpoint : endpoints) {
+            UpdateInfo info = fetchLatestViaApi(endpoint);
+            if (info != null) return info;
+            Log.i(TAG, "check fallback: " + endpoint + " -> " + lastError);
+        }
+        // 两条 API 都不通时最后兜底：302 取 tag + atom 取说明。
         return fetchLatestViaRedirect();
     }
 
-    private static UpdateInfo fetchLatestViaApi() {
+    private static UpdateInfo fetchLatestViaApi(String endpoint) {
         HttpURLConnection conn = null;
         try {
-            conn = (HttpURLConnection) new URL(
-                    "https://api.github.com/repos/" + OWNER + "/" + REPO + "/releases/latest")
-                    .openConnection();
-            conn.setConnectTimeout(15000);
-            conn.setReadTimeout(15000);
+            conn = (HttpURLConnection) new URL(endpoint).openConnection();
+            conn.setConnectTimeout(CHECK_CONNECT_MS);
+            conn.setReadTimeout(CHECK_READ_MS);
             conn.setRequestProperty("Accept", "application/vnd.github+json");
             conn.setRequestProperty("User-Agent", "WirelessAdb-Updater");
             int code = conn.getResponseCode();
@@ -209,8 +229,8 @@ public final class Updater {
         try {
             conn = (HttpURLConnection) new URL(
                     "https://github.com/" + OWNER + "/" + REPO + "/releases/latest").openConnection();
-            conn.setConnectTimeout(15000);
-            conn.setReadTimeout(15000);
+            conn.setConnectTimeout(CHECK_CONNECT_MS);
+            conn.setReadTimeout(CHECK_READ_MS);
             conn.setInstanceFollowRedirects(false);
             conn.setRequestProperty("User-Agent", "WirelessAdb-Updater");
             conn.getResponseCode(); // 302
@@ -227,15 +247,13 @@ public final class Updater {
             }
             String apkUrl = "https://github.com/" + OWNER + "/" + REPO
                     + "/releases/download/v" + tag + "/WirelessAdb-LSPosed-" + tag + ".apk";
-            // 降级路径拿不到 API 的 digest，改为下载同名 .sha256 小文件解析；
-            // 走与 APK 相同的镜像顺序，取不到就留空（退回版本号比较）。
-            String sha = fetchShaFile(tag);
-            // 说明正文同样没有 API 可取，改从 releases.atom 抓最新一版。
+            // 不再下载 .sha256 资产（发布已不再附带），避免每次检查都白跑 4 个死链接；
+            // 远程 sha 只在 API 可用时由 asset 的 digest 字段提供。
             String notes = fetchReleaseNotes(tag);
             lastError = null;
-            Log.i(TAG, "update check via redirect: tag=" + tag + " sha=" + sha
+            Log.i(TAG, "update check via redirect: tag=" + tag
                     + " notes=" + (notes == null ? 0 : notes.length()) + " apk=" + apkUrl);
-            return new UpdateInfo(tag, apkUrl, notes == null ? "" : notes, sha);
+            return new UpdateInfo(tag, apkUrl, notes == null ? "" : notes, null);
         } catch (Exception e) {
             Log.i(TAG, "redirect fallback failed: " + e.getMessage());
             lastError = prevError;
@@ -243,22 +261,6 @@ public final class Updater {
         } finally {
             if (conn != null) conn.disconnect();
         }
-    }
-
-    /** Downloads the matching .sha256 asset (via mirrors) and returns the first 64-hex token. */
-    private static String fetchShaFile(String tag) {
-        String path = "https://github.com/" + OWNER + "/" + REPO
-                + "/releases/download/v" + tag + "/WirelessAdb-LSPosed-" + tag + ".apk.sha256";
-        for (String mirror : MIRRORS) {
-            String url = mirror.isEmpty() ? path : mirror + path;
-            String text = downloadText(url);
-            if (text != null) {
-                java.util.regex.Matcher m = java.util.regex.Pattern
-                        .compile("([0-9a-fA-F]{64})").matcher(text);
-                if (m.find()) return m.group(1).toLowerCase(Locale.ROOT);
-            }
-        }
-        return null;
     }
 
     /**
@@ -269,9 +271,9 @@ public final class Updater {
      */
     private static String fetchReleaseNotes(String tag) {
         String path = "https://github.com/" + OWNER + "/" + REPO + "/releases.atom";
-        // 直连优先：镜像对 .atom 多返回 403（实测 ghfast / ghproxy.net 都是 403），
-        // 而 github.com 本身在降级链里已经证明可达，所以先试直连再看镜像。
-        String[] order = {"", MIRRORS[0], MIRRORS[1], MIRRORS[2]};
+        // 镜像优先、直连兜底：实测 gh-proxy.com 对 .atom 返回 200（约 0.8s），
+        // ghfast.top 对 .atom 是 403（跳过），国内直连 github.com 可能长时间无响应。
+        String[] order = {MIRRORS[1], MIRRORS[2], ""};
         for (String mirror : order) {
             String url = mirror.isEmpty() ? path : mirror + path;
             String xml = downloadText(url, 262144);
