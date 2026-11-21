@@ -8,7 +8,7 @@
 - 许可：MIT，基于 [shirenran/WirelessAdb-LSPosed](https://github.com/shirenran/WirelessAdb-LSPosed) 修改
 
 <p align="center">
-  <img src="docs/screenshot.png" alt="无线 ADB 自启状态页" width="360" />
+  <img src="docs/screenshot.jpg" alt="无线 ADB 状态页" width="360" />
 </p>
 
 ## 功能
