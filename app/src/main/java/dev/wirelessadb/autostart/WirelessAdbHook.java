@@ -47,6 +47,7 @@ public final class WirelessAdbHook extends XposedModule {
     private static final String ACTION_REQUEST_COPY = "dev.wirelessadb.autostart.REQUEST_COPY";
     private static final String ACTION_SET_MODE = "dev.wirelessadb.autostart.SET_MODE";
     private static final String ACTION_APPLY = "dev.wirelessadb.autostart.APPLY";
+    private static final String ACTION_SET_ENABLED = "dev.wirelessadb.autostart.SET_ENABLED";
     private static final String LOG_RECEIVER = "dev.wirelessadb.autostart.LogReceiver";
     private static final String MODULE_PACKAGE = "dev.wirelessadb.autostart";
     private static final String WETYPE_PACKAGE = "com.tencent.wetype";
@@ -74,6 +75,8 @@ public final class WirelessAdbHook extends XposedModule {
 
     private static String cachedMode = AdbModeConfig.MODE_TLS;
     private static int cachedTcpPort = AdbModeConfig.DEFAULT_TCP_PORT;
+    /** 总开关的内存镜像；setEnabled 时更新，其余路径每次读 Settings.Global 以免与 App 写入脱节。 */
+    private static boolean enabledCached = true;
 
     @Override
     public void onModuleLoaded(ModuleLoadedParam param) {
@@ -314,6 +317,8 @@ public final class WirelessAdbHook extends XposedModule {
                             if (controller != null) controller.clearReverts();
                             reloadConfig();
                             enableAdb("界面请求立即应用", true);
+                        } else if (ACTION_SET_ENABLED.equals(action)) {
+                            onSetEnabled(intent);
                         }
                     });
                 }
@@ -322,8 +327,9 @@ public final class WirelessAdbHook extends XposedModule {
             filter.addAction(ACTION_REQUEST_COPY);
             filter.addAction(ACTION_SET_MODE);
             filter.addAction(ACTION_APPLY);
+            filter.addAction(ACTION_SET_ENABLED);
             systemContext.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED);
-            logLine("命令接收器就绪（复制 / 切换模式 / 立即应用）");
+            logLine("命令接收器就绪（复制 / 切换模式 / 立即应用 / 总开关）");
         } catch (Throwable t) {
             logLine("命令接收器注册失败：" + shortError(t));
         }
@@ -364,8 +370,51 @@ public final class WirelessAdbHook extends XposedModule {
         logLine("切换模式 → " + AdbModeConfig.modeLabel(cachedMode)
                 + (AdbModeConfig.MODE_TCP.equals(cachedMode) ? ("，端口 " + cachedTcpPort) : "")
                 + "（adbd 将重启，端口与当前连接都会变）");
-        if (userUnlocked) enableAdb("切换模式", true);
-        else logLine("模式已保存，解锁后生效");
+        if (!userUnlocked) logLine("模式已保存，解锁后生效");
+        else if (!isEnabled()) logLine("模式已保存，但总开关为关闭状态 → 不重启 adbd");
+        else enableAdb("切换模式", true);
+    }
+
+    /** 总开关当前值。每次读 Settings.Global，App 侧写入后立刻生效，不靠内存缓存。 */
+    private static boolean isEnabled() {
+        if (systemContext == null) return true;
+        try {
+            enabledCached = Settings.Global.getInt(systemContext.getContentResolver(),
+                    AdbModeConfig.GLOBAL_ENABLED, 1) != 0;
+        } catch (Throwable ignored) { }
+        return enabledCached;
+    }
+
+    /**
+     * 界面切换总开关：先落库再执行。
+     * 关：主动关掉无线 ADB 并停止一切自动恢复；开：立即按当前模式重新开启。
+     */
+    private static void onSetEnabled(Intent intent) {
+        boolean target = intent.getBooleanExtra("enabled", true);
+        if (systemContext != null) {
+            AdbModeConfig.setEnabled(systemContext, target);
+        }
+        enabledCached = target;
+        lastCopiedAddress = null;
+        pendingAddress = null;
+        copyScheduled = false;
+        if (controller != null) controller.clearReverts();
+        if (target) {
+            logLine("总开关已打开 → 立即恢复无线 ADB（"
+                    + AdbModeConfig.modeLabel(cachedMode) + "）");
+            lastEnableAt = 0L;
+            if (userUnlocked) {
+                // 关闭期间可能从未注册过保持器，重开时必须补上，否则 Wi-Fi/亮屏不会自愈。
+                registerKeepers();
+                enableAdb("总开关打开", true);
+            } else {
+                logLine("尚未解锁，待解锁后自动开启");
+            }
+        } else {
+            logLine("总开关已关闭 → 停止保持并主动关闭无线 ADB（"
+                    + AdbModeConfig.modeLabel(cachedMode) + "）");
+            if (controller != null) controller.disable(cachedMode);
+        }
     }
 
     private static void reloadConfig() {
@@ -392,7 +441,8 @@ public final class WirelessAdbHook extends XposedModule {
                 if (app != null) cachedTcpPort = AdbModeConfig.getTcpPort(app);
             }
             logLine("当前模式：" + AdbModeConfig.modeLabel(cachedMode)
-                    + (AdbModeConfig.MODE_TCP.equals(cachedMode) ? (" @" + cachedTcpPort) : ""));
+                    + (AdbModeConfig.MODE_TCP.equals(cachedMode) ? (" @" + cachedTcpPort) : "")
+                    + "，总开关：" + (isEnabled() ? "开" : "关"));
         } catch (Throwable t) {
             logLine("读取配置失败：" + shortError(t));
         }
@@ -408,6 +458,10 @@ public final class WirelessAdbHook extends XposedModule {
 
     private static void manualCopyAddress() {
         reloadConfig();
+        if (!isEnabled()) {
+            logLine("总开关关闭，无线 ADB 未开启，无地址可复制");
+            return;
+        }
         String ip = findWifiIpv4();
         int port = resolveActivePort();
         if (ip == null || port <= 0) {
@@ -441,6 +495,12 @@ public final class WirelessAdbHook extends XposedModule {
         if (userUnlocked) return;
         userUnlocked = true;
         reloadConfig();
+        if (!isEnabled()) {
+            // 总开关关闭：不注册保持器、不开 ADB。这是「关了就一直关」的落点，
+            // 重启前最后一次状态就是这样，所以每次开机都走这条分支直到用户重新打开。
+            logLine(reason + "，总开关为关闭状态 → 不自动开启无线 ADB");
+            return;
+        }
         logLine(reason + "，开始保持 ADB（" + AdbModeConfig.modeLabel(cachedMode) + "）");
         registerKeepers();
         enableAdb("首次解锁", true);
@@ -461,6 +521,7 @@ public final class WirelessAdbHook extends XposedModule {
                 @Override
                 public void onChange(boolean selfChange) {
                     handler.post(() -> {
+                        if (!isEnabled()) return;   // 自己关的总开关，别把 0 当成"被系统关掉"
                         if (!AdbModeConfig.MODE_TLS.equals(cachedMode)) return;
                         int value = adbWifiEnabled();
                         if (value == 1) {
@@ -494,6 +555,10 @@ public final class WirelessAdbHook extends XposedModule {
                 public void onAvailable(Network network) {
                     handler.postDelayed(() -> {
                         if (!userUnlocked) return;
+                        if (!isEnabled()) {
+                            logLine("Wi-Fi 可用，但总开关关闭 → 不接管");
+                            return;
+                        }
                         logLine("Wi-Fi 可用，检查 ADB（" + cachedMode + "）");
                         if (controller != null) controller.clearReverts();
                         keepAlive("Wi-Fi 恢复");
@@ -527,6 +592,7 @@ public final class WirelessAdbHook extends XposedModule {
     }
 
     private static void keepAlive(String reason) {
+        if (!isEnabled()) return;
         if (AdbModeConfig.MODE_TCP.equals(cachedMode)) {
             if (!isTcpPortReady(cachedTcpPort)) {
                 enableAdb(reason, false);
@@ -544,6 +610,11 @@ public final class WirelessAdbHook extends XposedModule {
 
     private static void enableAdb(String reason, boolean forceCopy) {
         if (controller == null || systemContext == null || handler == null) return;
+        if (!isEnabled()) {
+            // 所有自动路径最终都汇到这里，守卫放这一层就够了。
+            logLine("总开关已关闭，跳过开启（原因：" + reason + "）");
+            return;
+        }
         long now = System.currentTimeMillis();
         if (!forceCopy && now - lastEnableAt < REENABLE_COOLDOWN_MS) {
             logLine("跳过重复开启（冷却中，原因：" + reason + "）");
@@ -570,6 +641,10 @@ public final class WirelessAdbHook extends XposedModule {
 
     private static void checkAddress(String reason, int attempt, boolean forceCopy) {
         handler.postDelayed(() -> {
+            if (!isEnabled()) {
+                // 关闭开关后残留的轮询到此终止，否则会一路重试到上限。
+                return;
+            }
             if (AdbModeConfig.MODE_TLS.equals(cachedMode)) {
                 if (adbWifiEnabled() != 1 && attempt == 0) {
                     enableAdb(reason + "-二次确认", forceCopy);

@@ -205,6 +205,33 @@ final class AdbController {
         return value;
     }
 
+    /**
+     * 关闭无线 ADB（总开关置 0 时调用）。
+     *
+     * <p>TLS：写 adb_wifi_enabled=0，framework 会停掉 adbd 的 TLS 监听，端口随即释放。
+     * <p>TCP：把 service.adb.tcp.port 置 -1 并重启 adbd，adbd 不再监听 tcp.
+     * 注意 adbd 本体仍会随 USB 调试存在，这里只关无线/网络侧入口，不动 USB。
+     */
+    void disable(String mode) {
+        if (AdbModeConfig.MODE_TCP.equals(mode)) {
+            try {
+                String current = SysReflect.getSystemProperty(PROP_TCP_PORT, "");
+                SysReflect.setSystemProperty(PROP_TCP_PORT, "-1");
+                logger.log("TCP：已置 " + PROP_TCP_PORT + "=-1（原 " + describeTcpProp(current) + "）");
+                restartAdbd("关闭无线 ADB");
+            } catch (Throwable t) {
+                logger.log("关闭 TCP 监听失败：" + shortError(t));
+            }
+            return;
+        }
+        try {
+            Settings.Global.putInt(context.getContentResolver(), SETTING_ADB_WIFI, 0);
+            logger.log("TLS：已写入 " + SETTING_ADB_WIFI + "=0，回读=" + adbWifiEnabled());
+        } catch (Throwable t) {
+            logger.log("关闭无线调试失败：" + shortError(t));
+        }
+    }
+
     void restartAdbd(String reason) {
         try {
             SysReflect.setSystemProperty("ctl.restart", "adbd");

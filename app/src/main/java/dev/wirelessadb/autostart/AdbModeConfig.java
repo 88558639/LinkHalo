@@ -17,6 +17,12 @@ public final class AdbModeConfig {
     /** Settings.Global keys (readable from system_server). */
     public static final String GLOBAL_MODE = "wirelessadb_autostart_mode";
     public static final String GLOBAL_TCP_PORT = "wirelessadb_autostart_tcp_port";
+    /**
+     * 总开关。1=保持无线 ADB 常开（默认，兼容旧版本），0=不接管且不自动开启。
+     * 必须放 Settings.Global：hook 在 system_server 内、开机首次解锁前就要读，
+     * 那时读不到 App 的 CE 存储。
+     */
+    public static final String GLOBAL_ENABLED = "wirelessadb_autostart_enabled";
 
     /** Android 11+ 无线调试 TLS，端口随机。 */
     public static final String MODE_TLS = "tls";
@@ -85,6 +91,24 @@ public final class AdbModeConfig {
         try {
             Settings.Global.putString(systemContext.getContentResolver(), GLOBAL_MODE, normalized);
             Settings.Global.putInt(systemContext.getContentResolver(), GLOBAL_TCP_PORT, port);
+        } catch (Throwable ignored) { }
+    }
+
+    /** 总开关是否开启；未设置过按开启处理（兼容 1.2.17 及更早版本）。 */
+    public static boolean isEnabled(Context context) {
+        if (context == null) return true;
+        try {
+            return Settings.Global.getInt(context.getContentResolver(), GLOBAL_ENABLED, 1) != 0;
+        } catch (Throwable ignored) {
+            return true;
+        }
+    }
+
+    /** 写总开关。system_server 侧有权限；App 侧写失败时由 hook 补写。 */
+    public static void setEnabled(Context context, boolean enabled) {
+        if (context == null) return;
+        try {
+            Settings.Global.putInt(context.getContentResolver(), GLOBAL_ENABLED, enabled ? 1 : 0);
         } catch (Throwable ignored) { }
     }
 

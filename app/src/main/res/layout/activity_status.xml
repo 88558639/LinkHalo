@@ -52,26 +52,17 @@
                 android:paddingBottom="12dp">
 
                 <TextView
-                    android:id="@+id/wadb_subtitle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="start|center_vertical"
-                    android:text="@string/wadb_title"
-                    android:textColor="@color/fl_on_surface_variant"
-                    android:textSize="12sp" />
-
-                <TextView
                     android:id="@+id/notice_chip"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_gravity="center_horizontal|center_vertical"
+                    android:layout_gravity="start|center_vertical"
                     android:background="@drawable/fl_pill"
                     android:backgroundTint="@color/fl_accent_soft"
                     android:paddingStart="12dp"
                     android:paddingTop="6dp"
                     android:paddingEnd="12dp"
                     android:paddingBottom="6dp"
-                    android:text="已准备就绪"
+                    android:text="模块已启用"
                     android:textColor="@color/fl_accent"
                     android:textSize="11sp"
                     android:textStyle="bold" />
@@ -142,6 +133,7 @@
                         android:foreground="@drawable/fl_ripple_circle">
 
                         <ImageView
+                            android:id="@+id/hero_icon"
                             android:layout_width="26dp"
                             android:layout_height="26dp"
                             android:layout_gravity="center"
@@ -608,6 +600,48 @@
                         android:textSize="11sp" />
                 </ScrollView>
             </FrameLayout>
+
+            <!-- Section: about / update -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:layout_marginTop="6dp"
+                android:layout_marginEnd="16dp"
+                android:layout_marginBottom="28dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/btn_changelog"
+                    android:layout_width="match_parent"
+                    android:layout_height="46dp"
+                    android:gravity="center"
+                    android:background="@drawable/fl_round_sm"
+                    android:backgroundTint="@color/fl_surface"
+                    android:foreground="@drawable/fl_ripple_round_sm"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:text="更新日志"
+                    android:textColor="@color/fl_on_surface"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/btn_check_update"
+                    android:layout_width="match_parent"
+                    android:layout_height="46dp"
+                    android:layout_marginTop="10dp"
+                    android:gravity="center"
+                    android:background="@drawable/fl_round_sm"
+                    android:backgroundTint="@color/fl_accent"
+                    android:foreground="@drawable/fl_ripple_round_sm"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:text="检查更新"
+                    android:textColor="@color/fl_on_accent"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
         </LinearLayout>
     </ScrollView>
 
