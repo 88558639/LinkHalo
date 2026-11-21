@@ -1,4 +1,4 @@
-package dev.wirelessadb.autostart;
+package io.github.linkhalo;
 
 import android.app.Activity;
 import android.app.Dialog;
@@ -148,7 +148,7 @@ public final class StatusActivity extends Activity {
                     .withEndAction(() -> v.animate().scaleX(1f).scaleY(1f)
                             .setDuration(70).start())
                     .start();
-            sendBroadcast(new Intent("dev.wirelessadb.autostart.REQUEST_COPY").setPackage("android"));
+            sendBroadcast(new Intent("io.github.linkhalo.REQUEST_COPY").setPackage("android"));
             Toast.makeText(this, "地址已复制", Toast.LENGTH_SHORT).show();
         });
 
@@ -162,7 +162,7 @@ public final class StatusActivity extends Activity {
             // App 侧写一次（通常没有 WRITE_SECURE_SETTINGS，可能失败）；
             // 广播里 hook 在 system_server 内有权限，会再写一次，以那边为准。
             AdbModeConfig.setEnabled(this, target);
-            sendBroadcast(new Intent("dev.wirelessadb.autostart.SET_ENABLED")
+            sendBroadcast(new Intent("io.github.linkhalo.SET_ENABLED")
                     .setPackage("android")
                     .putExtra("enabled", target));
             syncHero(target);
@@ -206,7 +206,7 @@ public final class StatusActivity extends Activity {
         String previousMode = AdbModeConfig.getMode(this);
         boolean modeChanged = !mode.equals(previousMode);
         AdbModeConfig.setMode(this, mode, port);
-        sendBroadcast(new Intent("dev.wirelessadb.autostart.SET_MODE")
+        sendBroadcast(new Intent("io.github.linkhalo.SET_MODE")
                 .setPackage("android")
                 .putExtra("mode", mode)
                 .putExtra("port", port));
@@ -705,7 +705,9 @@ public final class StatusActivity extends Activity {
     }
 
     private static final String CHANGELOG =
-            "1.2.33  检查更新提速：API 被限流时改走 gh-proxy 代理同一 API，说明与校验值一并返回，"
+            "2.0.0  项目更名为 LinkHalo：包名改为 io.github.linkhalo，应用名与仓库同步更名。"
+                    + "因包名变更，需先卸载旧版「无线ADB」再安装；开关/模式等设置沿用原有 Global 键，状态不丢\n\n"
+                    + "1.2.33  检查更新提速：API 被限流时改走 gh-proxy 代理同一 API，说明与校验值一并返回，"
                     + "不再抓 atom、不再探测已废弃的 .sha256；镜像 ghproxy.net→gh.llkk.cc，超时 15s→8s\n\n"
                     + "1.2.32  点「检查更新」后按钮内显示进度圈与「检查更新中…」，检查期间禁点；"
                     + "手动检查至少停留 600ms，避免一闪而过\n\n"

@@ -1,4 +1,4 @@
-package dev.wirelessadb.autostart;
+package io.github.linkhalo;
 
 import android.content.Context;
 import android.content.Intent;
@@ -27,9 +27,9 @@ import java.util.Locale;
  * and hands the file to the system installer via {@link ApkProvider}.
  */
 public final class Updater {
-    private static final String TAG = "WirelessAdb";
+    private static final String TAG = "LinkHalo";
     private static final String OWNER = "88558639";
-    private static final String REPO = "WirelessAdb";
+    private static final String REPO = "LinkHalo";
 
     /**
      * 镜像顺序：ghfast.top → gh-proxy.com → gh.llkk.cc → 直连。
@@ -173,7 +173,7 @@ public final class Updater {
             conn.setConnectTimeout(CHECK_CONNECT_MS);
             conn.setReadTimeout(CHECK_READ_MS);
             conn.setRequestProperty("Accept", "application/vnd.github+json");
-            conn.setRequestProperty("User-Agent", "WirelessAdb-Updater");
+            conn.setRequestProperty("User-Agent", "LinkHalo-Updater");
             int code = conn.getResponseCode();
             if (code != 200) {
                 lastError = "HTTP " + code;
@@ -232,7 +232,7 @@ public final class Updater {
             conn.setConnectTimeout(CHECK_CONNECT_MS);
             conn.setReadTimeout(CHECK_READ_MS);
             conn.setInstanceFollowRedirects(false);
-            conn.setRequestProperty("User-Agent", "WirelessAdb-Updater");
+            conn.setRequestProperty("User-Agent", "LinkHalo-Updater");
             conn.getResponseCode(); // 302
             String loc = conn.getHeaderField("Location");
             if (loc == null || !loc.contains("/tag/")) {
@@ -246,7 +246,7 @@ public final class Updater {
                 return null;
             }
             String apkUrl = "https://github.com/" + OWNER + "/" + REPO
-                    + "/releases/download/v" + tag + "/WirelessAdb-LSPosed-" + tag + ".apk";
+                    + "/releases/download/v" + tag + "/LinkHalo-" + tag + ".apk";
             // 不再下载 .sha256 资产（发布已不再附带），避免每次检查都白跑 4 个死链接；
             // 远程 sha 只在 API 可用时由 asset 的 digest 字段提供。
             String notes = fetchReleaseNotes(tag);
@@ -374,7 +374,7 @@ public final class Updater {
             conn.setConnectTimeout(8000);
             conn.setReadTimeout(8000);
             conn.setInstanceFollowRedirects(true);
-            conn.setRequestProperty("User-Agent", "WirelessAdb-Updater");
+            conn.setRequestProperty("User-Agent", "LinkHalo-Updater");
             if (conn.getResponseCode() != 200) return null;
             InputStream in = conn.getInputStream();
             try {
@@ -417,7 +417,7 @@ public final class Updater {
             conn.setConnectTimeout(15000);
             conn.setReadTimeout(30000);
             conn.setInstanceFollowRedirects(true);
-            conn.setRequestProperty("User-Agent", "WirelessAdb-Updater");
+            conn.setRequestProperty("User-Agent", "LinkHalo-Updater");
             if (conn.getResponseCode() != 200) return false;
             long total = conn.getContentLengthLong();
             InputStream in = conn.getInputStream();

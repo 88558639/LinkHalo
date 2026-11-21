@@ -1,16 +1,16 @@
 plugins { id("com.android.application") }
 
 android {
-    namespace = "dev.wirelessadb.autostart"
+    namespace = "io.github.linkhalo"
     // 保持 36：本机 SDK 无 platform 37；本模块对 framework 全部走反射，不依赖编译期新 API。
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "dev.wirelessadb.autostart"
+        applicationId = "io.github.linkhalo"
         minSdk = 28
         targetSdk = 36
-        versionCode = 56
-        versionName = "1.2.33"
+        versionCode = 57
+        versionName = "2.0.0"
     }
 
     buildTypes {

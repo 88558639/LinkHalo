@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "WirelessAdb-LSPosed"
+rootProject.name = "LinkHalo"
 include(":app")

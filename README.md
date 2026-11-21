@@ -1,11 +1,11 @@
-# WirelessAdb
+# LinkHalo
 
 **LSPosed 模块**：开机首次解锁后自动开启无线 ADB，并在状态页查看地址、切换模式、手动复制、检查更新。
 
-- 包名：`dev.wirelessadb.autostart`
-- 当前版本：**1.2.31**
+- 包名：`io.github.linkhalo`
+- 当前版本：**2.0.0**
 - 目标环境：一加 15 / ColorOS 17（Android 17）＋ LSPosed ≥ 2.1.0（libxposed API 102）
-- 许可：MIT，基于 [shirenran/WirelessAdb-LSPosed](https://github.com/shirenran/WirelessAdb-LSPosed) 修改
+- 许可：MIT，前身为 WirelessAdb，基于 [shirenran/WirelessAdb-LSPosed](https://github.com/shirenran/WirelessAdb-LSPosed) 修改
 
 <p align="center">
   <img src="docs/screenshot.jpg" alt="无线 ADB 状态页" width="360" />
@@ -69,13 +69,15 @@
 
 > API 102 模块与 legacy API 82 模块在 classloader 层互斥。本版本**不能**与旧版（1.0.18）共存，升级时先卸载旧版。
 
+> **2.0.0 起包名由 `dev.wirelessadb.autostart` 改为 `io.github.linkhalo`**：系统会视为另一个应用，必须**先卸载旧版「无线ADB」**再安装，否则两个模块会同时 hook `system_server`。开关/模式/端口等设置存于同一批 `Settings.Global` 键，重装后状态不会丢。
+
 ## 安装
 
 1. 安装 Release APK（若装过 1.0.18 且提示签名冲突，先卸载旧版）。
 2. 在 **LSPosed** 中启用本模块。
 3. 作用域确认为 **系统框架 / system**（`staticScope=false`，如管理器里未勾选可手动加上；升级/卸载重装后启用状态与作用域会被清空，需重新勾选）。
 4. 重启手机并完成首次解锁。
-5. 打开「无线ADB」状态页，看到 `[框架] 模块已加载` 即代表 hook 生效。
+5. 打开「LinkHalo」状态页，看到 `[框架] 模块已加载` 即代表 hook 生效。
 
 > 仅建议在可信局域网使用。
 
@@ -99,7 +101,7 @@
 | TCP 5555 连不上 | 看 `[诊断]` 里 `tcp.port` 回读值与 `adbd` 状态；Android 17 重写了 adbd，必要时改用 TLS 模式 |
 | 检查更新提示 HTTP 403 | 手机出口 IP 被 GitHub 限流，模块会自动走降级链路；仍失败看运行记录里的 `update check` 行 |
 
-LSPosed 的详细日志 tag 为 `WirelessAdbAutoStart`，也可直接读 `/data/adb/lspd/log/modules_*.log`。
+LSPosed 的详细日志 tag 为 `LinkHalo`，也可直接读 `/data/adb/lspd/log/modules_*.log`。
 
 ## 构建
 
@@ -121,11 +123,11 @@ unzip -l app/build/outputs/apk/release/app-release.apk | grep META-INF/xposed
 
 ## 更新记录
 
-完整版本变更见 [Releases](https://github.com/88558639/WirelessAdb/releases) 与 App 内「更新日志」按钮，README 不再逐版罗列。
+完整版本变更见 [Releases](https://github.com/88558639/LinkHalo/releases) 与 App 内「更新日志」按钮，README 不再逐版罗列。
 
 ## 致谢
 
-本项目源自 [shirenran/WirelessAdb-LSPosed](https://github.com/shirenran/WirelessAdb-LSPosed)（原作者 shirenran，MIT 协议，最初版本 1.0.18）。本 fork 在其基础上适配 ColorOS 17 / Android 17 并持续维护：
+本项目（原名 WirelessAdb，2.0.0 起更名 LinkHalo）源自 [shirenran/WirelessAdb-LSPosed](https://github.com/shirenran/WirelessAdb-LSPosed)（原作者 shirenran，MIT 协议，最初版本 1.0.18）。本 fork 在其基础上适配 ColorOS 17 / Android 17 并持续维护：
 
 - 迁移到 **libxposed API 102**，可直接注入 `system_server`；
 - 修复 Android 17 上 TLS 端口读取失败（属性 → `AdbService.getAdbWirelessPort()` → `dumpsys adb` 三级探测）；

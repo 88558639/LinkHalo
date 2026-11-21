@@ -6,7 +6,7 @@
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
-        android:label="无线ADB"
+        android:label="LinkHalo"
         android:description="@string/wadb_desc"
         android:theme="@style/AppTheme">
         <activity android:name=".StatusActivity" android:exported="true">
@@ -21,13 +21,13 @@
             android:exported="true" />
         <provider
             android:name=".LogProvider"
-            android:authorities="dev.wirelessadb.autostart.log"
+            android:authorities="io.github.linkhalo.log"
             android:directBootAware="true"
             android:exported="true" />
         <!-- 供系统安装器读取下载好的更新 APK（见 ApkProvider）。 -->
         <provider
             android:name=".ApkProvider"
-            android:authorities="dev.wirelessadb.autostart.apk"
+            android:authorities="io.github.linkhalo.apk"
             android:exported="false"
             android:grantUriPermissions="true" />
     </application>
