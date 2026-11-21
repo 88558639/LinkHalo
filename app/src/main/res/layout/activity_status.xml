@@ -626,21 +626,39 @@
                     android:textSize="14sp"
                     android:textStyle="bold" />
 
-                <TextView
+                <LinearLayout
                     android:id="@+id/btn_check_update"
                     android:layout_width="match_parent"
                     android:layout_height="46dp"
                     android:layout_marginTop="10dp"
-                    android:gravity="center"
                     android:background="@drawable/fl_round_sm"
                     android:backgroundTint="@color/fl_accent"
                     android:foreground="@drawable/fl_ripple_round_sm"
                     android:clickable="true"
                     android:focusable="true"
-                    android:text="检查更新"
-                    android:textColor="@color/fl_on_accent"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
+                    android:gravity="center"
+                    android:orientation="horizontal">
+
+                    <!-- 手动检查期间的进度圈：默认隐藏，见 StatusActivity.setCheckingUi()。 -->
+                    <ProgressBar
+                        android:id="@+id/btn_check_spinner"
+                        style="?android:attr/progressBarStyleSmall"
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:layout_marginEnd="8dp"
+                        android:indeterminate="true"
+                        android:indeterminateTint="@color/fl_on_accent"
+                        android:visibility="gone" />
+
+                    <TextView
+                        android:id="@+id/btn_check_label"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="检查更新"
+                        android:textColor="@color/fl_on_accent"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
             </LinearLayout>
         </LinearLayout>
     </ScrollView>

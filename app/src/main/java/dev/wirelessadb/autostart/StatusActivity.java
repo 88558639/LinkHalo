@@ -450,20 +450,43 @@ public final class StatusActivity extends Activity {
     private void runCheck(final boolean manual) {
         if (checkingUpdate) return;
         checkingUpdate = true;
+        final long startedAt = System.currentTimeMillis();
+        // 自动检查是静默的，只有手动点按钮才需要「正在检查」的反馈。
+        if (manual) setCheckingUi(true);
         updateExec.execute(() -> {
             final Updater.UpdateInfo info = Updater.check(this);
             uiHandler.post(() -> {
                 checkingUpdate = false;
                 if (isFinishing() || isDestroyed()) return;
-                if (info != null) {
-                    showUpdateDialog(info);
-                } else if (manual) {
-                    String err = Updater.getLastError();
-                    Toast.makeText(this, err != null ? "检查失败：" + err : "已是最新版本",
-                            Toast.LENGTH_SHORT).show();
-                }
+                Runnable finish = () -> {
+                    if (manual) setCheckingUi(false);
+                    if (info != null) {
+                        showUpdateDialog(info);
+                    } else if (manual) {
+                        String err = Updater.getLastError();
+                        Toast.makeText(this, err != null ? "检查失败：" + err : "已是最新版本",
+                                Toast.LENGTH_SHORT).show();
+                    }
+                };
+                // 网络很快时进度圈会一闪而过，看不出反馈；手动检查至少让状态停留 600ms。
+                long wait = manual ? 600L - (System.currentTimeMillis() - startedAt) : 0L;
+                if (wait > 0) uiHandler.postDelayed(finish, wait);
+                else finish.run();
             });
         });
+    }
+
+    /** 手动检查期间：按钮内显示进度圈、文案改为「检查更新中…」，并禁用重复点击。 */
+    private void setCheckingUi(boolean checking) {
+        View btn = findViewById(R.id.btn_check_update);
+        View spinner = findViewById(R.id.btn_check_spinner);
+        TextView label = findViewById(R.id.btn_check_label);
+        if (btn != null) {
+            btn.setEnabled(!checking);
+            btn.setAlpha(checking ? 0.8f : 1f);
+        }
+        if (spinner != null) spinner.setVisibility(checking ? View.VISIBLE : View.GONE);
+        if (label != null) label.setText(checking ? "检查更新中…" : "检查更新");
     }
 
     /** 通用卡片式对话框，返回一个只有标题的 LinearLayout 面板。 */
@@ -682,7 +705,9 @@ public final class StatusActivity extends Activity {
     }
 
     private static final String CHANGELOG =
-            "1.2.31  更新提示里直接显示本次更新内容（跨多个版本时只显示最新一版）；"
+            "1.2.32  点「检查更新」后按钮内显示进度圈与「检查更新中…」，检查期间禁点；"
+                    + "手动检查至少停留 600ms，避免一闪而过\n\n"
+                    + "1.2.31  更新提示里直接显示本次更新内容（跨多个版本时只显示最新一版）；"
                     + "GitHub API 被限流时说明改从 releases.atom 取\n\n"
                     + "1.2.29  更新包安装后自动清理缓存（sha 一致才删，避免误删）\n\n"
                     + "1.2.28  闪电按钮＝无线调试总开关：开着就一直开（重启、断网重连都会自动恢复），"
